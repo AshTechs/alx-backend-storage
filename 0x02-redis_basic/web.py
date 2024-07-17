@@ -1,4 +1,5 @@
-# web.py
+#!/usr/bin/env python3
+"""Implement this use case with decorators. """
 
 import requests
 import redis
