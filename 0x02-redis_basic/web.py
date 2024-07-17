@@ -3,7 +3,8 @@
 '''
 import redis
 import requests
-from contextlib import contextmanager
+from functools import wraps
+from typing import Callable
 
 
 redis_store = redis.Redis()
@@ -11,45 +12,33 @@ redis_store = redis.Redis()
 '''
 
 
-@contextmanager
-def cache_manager(url: str):
-    '''Context manager for handling caching and request counting.
+def data_cacher(method: Callable) -> Callable:
+    '''Caches the output of fetched data.
     '''
-    try:
-        # Increment the access count for the URL
+    @wraps(method)
+    def invoker(url) -> str:
+        '''The wrapper function for caching the output.
+        '''
         redis_store.incr(f'count:{url}')
-        
-        # Check if the result is already cached
-        cached_result = redis_store.get(f'result:{url}')
-        if cached_result:
-            yield cached_result.decode('utf-8')
-        else:
-            yield None
-    finally:
-        # Ensure any cleanup if needed
-        pass
+        result = redis_store.get(f'result:{url}')
+        if result:
+            return result.decode('utf-8')
+        result = method(url)
+        redis_store.setex(f'result:{url}', 10, result)
+        return result
+    return invoker
 
 
+@data_cacher
 def get_page(url: str) -> str:
     '''Returns the content of a URL after caching the request's response,
     and tracking the request.
     '''
-    with cache_manager(url) as cached_result:
-        if cached_result is not None:
-            return cached_result
-        
-        # Fetch the content from the URL
-        response = requests.get(url)
-        result = response.text
-        
-        # Cache the result with a 10-second expiration
-        redis_store.setex(f'result:{url}', 10, result)
-        
-        return result
+    return requests.get(url).text
 
-# Example usage:
+
 if __name__ == '__main__':
-    url = 'http://slowwly.robertomurray.co.uk/delay/3000/url/http://www.example.com'
+    # Example usage
+    url = 'http://slowwly.robertomurray.co.uk/delay/5000/url/http://www.google.com'
     print(get_page(url))
-    print(get_page(url))  # This call should return the cached result
-    print(redis_store.get(f'count:{url}').decode('utf-8'))  # Should print the number of times the URL was accessed
+    print(f"URL accessed {redis_store.get(f'count:{url}').decode('utf-8')} times")
