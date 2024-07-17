@@ -76,8 +76,8 @@ if __name__ == "__main__":
     cache = Cache()
 
     cache.store(b"first")
-    print(cache.get(cache.store.__qualname__))
+    print(cache.get(f"{cache.store.__qualname__}:count"))
 
     cache.store(b"second")
     cache.store(b"third")
-    print(cache.get(cache.store.__qualname__))
+    print(cache.get(f"{cache.store.__qualname__}:count"))
