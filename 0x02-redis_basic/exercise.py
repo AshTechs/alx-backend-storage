@@ -57,6 +57,25 @@ def call_history(method: Callable) -> Callable:
     
     return wrapper
 
+def replay(method: Callable):
+    """
+    Display the history of calls of a particular function.
+
+    Args:
+        method (Callable): The method to replay.
+    """
+    key = method.__qualname__
+    input_key = f"{key}:inputs"
+    output_key = f"{key}:outputs"
+    redis_instance = method.__self__._redis
+
+    inputs = redis_instance.lrange(input_key, 0, -1)
+    outputs = redis_instance.lrange(output_key, 0, -1)
+
+    print(f"{key} was called {len(inputs)} times:")
+    for input_data, output_data in zip(inputs, outputs):
+        print(f"{key}(*{input_data.decode('utf-8')}) -> {output_data.decode('utf-8')}")
+
 class Cache:
     """
     Cache class to interact with Redis for storing and retrieving data.
@@ -129,15 +148,8 @@ class Cache:
 if __name__ == "__main__":
     cache = Cache()
 
-    s1 = cache.store("first")
-    print(s1)
-    s2 = cache.store("secont")
-    print(s2)
-    s3 = cache.store("third")
-    print(s3)
+    s1 = cache.store("foo")
+    s2 = cache.store("bar")
+    s3 = cache.store(42)
 
-    inputs = cache._redis.lrange("{}:inputs".format(cache.store.__qualname__), 0, -1)
-    outputs = cache._redis.lrange("{}:outputs".format(cache.store.__qualname__), 0, -1)
-
-    print("inputs: {}".format(inputs))
-    print("outputs: {}".format(outputs))
+    replay(cache.store)
