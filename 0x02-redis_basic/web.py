@@ -7,38 +7,31 @@ from functools import wraps
 from typing import Callable
 
 
-class Cache:
-    '''A class to handle caching and tracking of requests.
-    '''
-    def __init__(self):
-        self.redis_store = redis.Redis()
+redis_store = redis.Redis()
+'''The module-level Redis instance.
+'''
 
-    def data_cacher(self, method: Callable) -> Callable:
-        '''Caches the output of fetched data.
-        '''
+
+def cache_request(expiration: int = 10):
+    '''Decorator to cache the output of fetched data.
+    '''
+    def decorator(method: Callable) -> Callable:
         @wraps(method)
-        def invoker(url) -> str:
+        def wrapper(url: str) -> str:
             '''The wrapper function for caching the output.
             '''
-            self.redis_store.incr(f'count:{url}')
-            result = self.redis_store.get(f'result:{url}')
-            if result:
-                return result.decode('utf-8')
+            redis_store.incr(f'count:{url}')
+            cached_result = redis_store.get(f'result:{url}')
+            if cached_result:
+                return cached_result.decode('utf-8')
             result = method(url)
-            self.redis_store.setex(f'result:{url}', 10, result)
+            redis_store.setex(f'result:{url}', expiration, result)
             return result
-        return invoker
-
-    def get_count(self, url: str) -> int:
-        '''Returns the count of how many times a URL was accessed.
-        '''
-        count = self.redis_store.get(f'count:{url}')
-        return int(count) if count else 0
+        return wrapper
+    return decorator
 
 
-cache = Cache()
-
-@cache.data_cacher
+@cache_request(expiration=10)
 def get_page(url: str) -> str:
     '''Returns the content of a URL after caching the request's response,
     and tracking the request.
@@ -46,8 +39,15 @@ def get_page(url: str) -> str:
     return requests.get(url).text
 
 
+def get_access_count(url: str) -> int:
+    '''Returns the count of how many times a URL was accessed.
+    '''
+    count = redis_store.get(f'count:{url}')
+    return int(count) if count else 0
+
+
 if __name__ == '__main__':
     # Example usage
     url = 'http://slowwly.robertomurray.co.uk/delay/5000/url/http://www.google.com'
     print(get_page(url))
-    print(f"URL accessed {cache.get_count(url)} times")
+    print(f"URL accessed {get_access_count(url)} times")
