@@ -1,11 +1,28 @@
 #!/usr/bin/env python3
 """
-This module defines a Cache class for storing data in Redis.
+This module defines a Cache class for storing data in Redis and a count_calls
+decorator to count how many times the methods of the Cache class are called.
 """
 
 import redis
 import uuid
 from typing import Union, Callable, Optional
+import functools
+
+
+def count_calls(method: Callable) -> Callable:
+    """
+    Decorator to count how many times a method is called.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        """
+        Wrapper function to increment the call count and call the original meth
+        """
+        key = f"{method.__qualname__}:calls"
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+    return wrapper
 
 
 class Cache:
@@ -15,12 +32,13 @@ class Cache:
     def __init__(self):
         """
         Initialize the Cache class.
-        Store an instance of the Redis client as a private variable named _redis.
+        Store an instance of the Redis client as a private variable named _redi
         Flush the instance using flushdb.
         """
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
         Store data in Redis and return the generated random key.
@@ -57,14 +75,9 @@ if __name__ == "__main__":
     # Example usage
     cache = Cache()
 
-    # Test cases to verify the functionality
-    TEST_CASES = {
-        b"foo": None,
-        123: int,
-        "bar": lambda d: d.decode("utf-8")
-    }
+    cache.store(b"first")
+    print(cache.get(cache.store.__qualname__))
 
-    for value, fn in TEST_CASES.items():
-        key = cache.store(value)
-        assert cache.get(key, fn=fn) == value
-        print(f"Key: {key}, Retrieved value: {cache.get(key, fn=fn)}")
+    cache.store(b"second")
+    cache.store(b"third")
+    print(cache.get(cache.store.__qualname__))
