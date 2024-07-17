@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-This module defines a Cache class for storing data in Redis.
+This module defines a Cache class for storing data in Redis,
+with a decorator to count the number of method calls.
 """
 
 import redis
