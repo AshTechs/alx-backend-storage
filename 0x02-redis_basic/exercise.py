@@ -8,7 +8,6 @@ import uuid
 import functools
 from typing import Union, Callable, Optional
 
-
 def count_calls(method: Callable) -> Callable:
     """
     Decorator to count the number of calls to a method.
@@ -27,9 +26,8 @@ def count_calls(method: Callable) -> Callable:
         key = method.__qualname__
         self._redis.incr(key)
         return method(self, *args, **kwargs)
-
+    
     return wrapper
-
 
 def call_history(method: Callable) -> Callable:
     """
@@ -48,17 +46,16 @@ def call_history(method: Callable) -> Callable:
         """
         input_key = f"{method.__qualname__}:inputs"
         output_key = f"{method.__qualname__}:outputs"
-
+        
         self._redis.rpush(input_key, str(args))
-
+        
         output = method(self, *args, **kwargs)
-
+        
         self._redis.rpush(output_key, str(output))
-
+        
         return output
-
+    
     return wrapper
-
 
 def replay(method: Callable):
     """
@@ -79,12 +76,10 @@ def replay(method: Callable):
     for input_data, output_data in zip(inputs, outputs):
         print(f"{key}(*{input_data.decode('utf-8')}) -> {output_data.decode('utf-8')}")
 
-
 class Cache:
     """
     Cache class to interact with Redis for storing and retrieving data.
     """
-
     def __init__(self):
         """
         Initialize the Cache class by creating a Redis client and flushing the database.
@@ -149,7 +144,6 @@ class Cache:
             Optional[int]: The retrieved integer or None if the key does not exist.
         """
         return self.get(key, lambda d: int(d))
-
 
 if __name__ == "__main__":
     cache = Cache()
