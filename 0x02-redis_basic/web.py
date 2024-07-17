@@ -1,54 +1,58 @@
-#!/usr/bin/env python3
-"""Get_page function"""
+# web.py
+
 import requests
 import redis
 import time
-import functools
+from typing import Optional
 
+# Redis connection
 redis_client = redis.Redis()
 
-
-def count_accesses(func):
+def get_page(url: str) -> Optional[str]:
     """
-    Decorator to count the number of accesses to a function for each URL.
-    """
-    @functools.wraps(func)
-    def wrapper(url):
-        redis_client.incr(f"count:{url}")
-        return func(url)
-    return wrapper
-
-def cache_content(func):
-    """
-    Decorator to cache the content of a function with a 10-second expiration time.
-    """
-    @functools.wraps(func)
-    def wrapper(url):
-        cached_content = redis_client.get(f"content:{url}")
-        if cached_content:
-            return cached_content.decode('utf-8')
-        content = func(url)
-        redis_client.setex(f"content:{url}", 10, content)
-        return content
-    return wrapper
-
-@count_accesses
-@cache_content
-def get_page(url: str) -> str:
-    """
-    Fetches the HTML content of a given URL and caches the result with a 10-second expiration time.
+    Retrieve HTML content from a URL and cache the result with a 10-second expiration.
 
     Args:
         url (str): The URL to fetch HTML content from.
 
     Returns:
-        str: The HTML content of the URL.
+        Optional[str]: The HTML content of the URL or None if request fails.
     """
-    response = requests.get(url)
-    return response.text
+    # Check if the URL has been accessed before
+    access_count_key = f"count:{url}"
+    cached_html_key = f"html:{url}"
 
-# Example usage
+    # Check Redis cache for stored HTML
+    cached_html = redis_client.get(cached_html_key)
+    if cached_html:
+        # Return cached HTML if available
+        return cached_html.decode('utf-8')
+
+    try:
+        # Fetch HTML content from the URL
+        response = requests.get(url)
+        if response.status_code == 200:
+            html_content = response.text
+
+            # Cache the HTML content with expiration time of 10 seconds
+            redis_client.setex(cached_html_key, 10, html_content)
+
+            # Increment access count for the URL
+            redis_client.incr(access_count_key)
+
+            return html_content
+        else:
+            print(f"Failed to fetch URL: {url}, Status code: {response.status_code}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request to {url} failed: {e}")
+        return None
+
 if __name__ == "__main__":
-    url = "http://slowwly.robertomurray.co.uk/delay/5000/url/http://www.example.com"
-    content = get_page(url)
-    print(content)
+    # Example usage
+    url = "http://slowwly.robertomurray.co.uk/delay/1000/url/http://www.example.com"
+    html_content = get_page(url)
+    if html_content:
+        print(html_content)
+    else:
+        print(f"Failed to fetch HTML from {url}")
