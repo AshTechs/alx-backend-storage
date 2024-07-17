@@ -8,6 +8,7 @@ import uuid
 import functools
 from typing import Union, Callable, Optional
 
+
 def count_calls(method: Callable) -> Callable:
     """
     Decorator to count the number of calls to a method.
@@ -21,13 +22,14 @@ def count_calls(method: Callable) -> Callable:
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         """
-        Wrapper function to increment the call count and call the original method.
+        Wrapper function to increment the call count & call the original meth.
         """
         key = method.__qualname__
         self._redis.incr(key)
         return method(self, *args, **kwargs)
-    
+
     return wrapper
+
 
 def call_history(method: Callable) -> Callable:
     """
@@ -46,16 +48,17 @@ def call_history(method: Callable) -> Callable:
         """
         input_key = f"{method.__qualname__}:inputs"
         output_key = f"{method.__qualname__}:outputs"
-        
+
         self._redis.rpush(input_key, str(args))
-        
+
         output = method(self, *args, **kwargs)
-        
+
         self._redis.rpush(output_key, str(output))
-        
+
         return output
-    
+
     return wrapper
+
 
 def replay(method: Callable):
     """
@@ -73,7 +76,9 @@ def replay(method: Callable):
 
     print(f"{method.__qualname__} was called {len(inputs)} times:")
     for inp, out in zip(inputs, outputs):
-        print(f"{method.__qualname__}(*{inp.decode('utf-8')}) -> {out.decode('utf-8')}")
+        print((f"{method.__qualname__}(*{inp.decode('utf-8')})
+               -> {out.decode('utf-8')}"))
+
 
 class Cache:
     """
@@ -81,7 +86,7 @@ class Cache:
     """
     def __init__(self):
         """
-        Initialize the Cache class by creating a Redis client and flushing the database.
+        Initialize the Cache class and flushing the database.
         """
         self._redis = redis.Redis()
         self._redis.flushdb()
@@ -102,16 +107,17 @@ class Cache:
         self._redis.set(key, data)
         return key
 
-    def get(self, key: str, fn: Optional[Callable] = None) -> Union[str, bytes, int, float, None]:
+    def get((self, key: str, fn: Optional[Callable]=None)
+            -> Union[str, bytes, int, float, None]):
         """
-        Retrieve data from Redis using the given key and an optional conversion function.
+        Retrieve data from Redis using the given key.
 
         Args:
             key (str): The key to retrieve the data.
             fn (Optional[Callable]): A function to convert the data.
 
         Returns:
-            Union[str, bytes, int, float, None]: The retrieved data or None if the key does not exist.
+            Union: The retrieved data or None if the key does not exist.
         """
         data = self._redis.get(key)
         if data is None:
@@ -128,7 +134,7 @@ class Cache:
             key (str): The key to retrieve the data.
 
         Returns:
-            Optional[str]: The retrieved string or None if the key does not exist.
+            Optional: The retrieved string or None if the key does not exist.
         """
         return self.get(key, lambda d: d.decode('utf-8'))
 
@@ -140,9 +146,10 @@ class Cache:
             key (str): The key to retrieve the data.
 
         Returns:
-            Optional[int]: The retrieved integer or None if the key does not exist.
+            Optional: The retrieved integer or None if the key does not exist.
         """
         return self.get(key, lambda d: int(d))
+
 
 if __name__ == "__main__":
     cache = Cache()
